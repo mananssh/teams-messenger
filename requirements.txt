@@ -1,22 +1,25 @@
-aiohttp
-openai
-anthropic
-pydub
-ffmpeg-python
-httpx
-aiohttp
-msal
-sendgrid
-jira
-PyGithub
-celery
-redis
-fastapi
-uvicorn[standard]
-pydantic
-python-dotenv
-boto3
-tenacity
-loguru
-python-multipart
-google-generativeai
+# Core
+pydantic>=2.0
+pydantic-settings>=2.0
+python-dotenv>=1.0
+loguru>=0.7
+
+# Web UI
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sse-starlette>=2.0
+
+# Transcription
+openai-whisper
+
+# LLM
+google-genai>=1.0
+
+# HTTP client (GitHub API, Graph API helpers)
+httpx>=0.27
+
+# Microsoft Teams — Graph API auth
+msal>=1.0
+
+# Jira Cloud
+jira>=3.0

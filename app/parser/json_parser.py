@@ -1,49 +1,34 @@
+from __future__ import annotations
+
 import json
 import re
 
+from loguru import logger
 
-def extract_json(text: str):
+from app.models import MeetingAnalysis
+
+
+def parse_llm_output(text: str) -> MeetingAnalysis | None:
+    """Parse raw LLM text into a validated MeetingAnalysis.
+
+    With structured output enabled the response should already be clean JSON,
+    but we keep lightweight fallbacks for resilience.
     """
-    Extract JSON from LLM response safely
-    """
-    try:
-        # ✅ Case 1: direct valid JSON
-        return json.loads(text)
+    candidates: list[str] = [text]
 
-    except:
-        pass
+    fenced = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fenced:
+        candidates.append(fenced.group(1))
 
-    try:
-        # ✅ Case 2: extract JSON inside ```json ... ```
-        match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-            return json.loads(json_str)
+    braces = re.search(r"\{.*\}", text, re.DOTALL)
+    if braces:
+        candidates.append(braces.group(0))
 
-    except:
-        pass
+    for candidate in candidates:
+        try:
+            return MeetingAnalysis.model_validate(json.loads(candidate))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            continue
 
-    try:
-        # ✅ Case 3: extract first {...} block
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            json_str = match.group(0)
-            return json.loads(json_str)
-
-    except Exception as e:
-        print("❌ JSON extraction failed:", e)
-
+    logger.error("Could not extract valid MeetingAnalysis from LLM output")
     return None
-
-
-def parse_llm_output(response_text: str):
-    print("⚙️ Parsing LLM output...")
-
-    data = extract_json(response_text)
-
-    if data is None:
-        print("❌ FINAL JSON PARSE FAILED")
-    else:
-        print("✅ JSON parsed successfully")
-
-    return data

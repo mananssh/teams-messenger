@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meeting Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+          colors: {
+            brand: { 50:'#eef2ff', 100:'#e0e7ff', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca', 900:'#312e81' },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 70% { box-shadow: 0 0 0 8px rgba(99,102,241,0); } 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } }
+    .spin { animation: spin 0.8s linear infinite; }
+    .fade-up { animation: fadeUp 0.4s ease-out both; }
+    .pulse-ring { animation: pulse-ring 1.5s ease infinite; }
+    .drop-zone.dragover { border-color: #6366f1 !important; background: rgba(99,102,241,0.06) !important; }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+  <!-- ─── HEADER ─────────────────────────────────────────────── -->
+  <header class="border-b border-gray-200 bg-white">
+    <div class="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-gray-900">Meeting Assistant</h1>
+        <p class="text-sm text-gray-500 mt-0.5">Upload a meeting recording or transcript &rarr; get structured actions</p>
+      </div>
+      <div id="badges" class="flex gap-1.5 text-xs"></div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-3xl w-full mx-auto px-6 py-8">
+
+    <!-- ═══ STATE 1: UPLOAD ═══════════════════════════════════ -->
+    <section id="upload-section">
+
+      <!-- Mode tabs -->
+      <div class="flex bg-gray-100 rounded-lg p-1 mb-6 max-w-xs">
+        <button onclick="setMode('transcript')" id="tab-transcript"
+          class="flex-1 text-sm font-medium py-2 px-4 rounded-md transition-all">Transcript</button>
+        <button onclick="setMode('audio')" id="tab-audio"
+          class="flex-1 text-sm font-medium py-2 px-4 rounded-md transition-all">Audio</button>
+      </div>
+
+      <!-- Upload cards -->
+      <div class="space-y-4">
+        <!-- Primary file -->
+        <div id="drop-primary" class="drop-zone border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+             onclick="this.querySelector('input').click()">
+          <input type="file" class="hidden" id="input-primary" onchange="handleFile(this, 'primary')">
+          <div class="text-gray-400 mb-2">
+            <svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          </div>
+          <p id="primary-label" class="text-sm text-gray-500">Drop your <strong>.vtt</strong> transcript here, or click to browse</p>
+          <p id="primary-file" class="text-sm font-medium text-brand-600 mt-2 hidden"></p>
+        </div>
+
+        <!-- Participants JSON -->
+        <div id="drop-participants" class="drop-zone border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
+             onclick="this.querySelector('input').click()">
+          <input type="file" class="hidden" accept=".json" id="input-participants" onchange="handleFile(this, 'participants')">
+          <p id="participants-label" class="text-sm text-gray-500">Drop <strong>participants.json</strong> <span id="participants-req" class="text-gray-400">(optional for transcript mode)</span></p>
+          <p id="participants-file" class="text-sm font-medium text-brand-600 mt-1 hidden"></p>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button id="btn-run" onclick="startPipeline()" disabled
+        class="mt-6 w-full py-3 rounded-xl text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+        Analyze Meeting
+      </button>
+
+      <!-- Graph API note -->
+      <div class="mt-6 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700 leading-relaxed">
+        <strong>Production mode:</strong> This system can connect directly to the Microsoft Graph API to automatically
+        fetch meeting transcripts and attendance records the moment a meeting ends. Currently running in manual upload
+        mode for this demo.
+      </div>
+    </section>
+
+    <!-- ═══ STATE 2: PIPELINE TRACKER ═════════════════════════ -->
+    <section id="tracker-section" class="hidden">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-lg font-semibold text-gray-900">Pipeline</h2>
+        <span id="elapsed" class="text-xs text-gray-400 font-mono tabular-nums">0.0s</span>
+      </div>
+
+      <div id="steps" class="space-y-3"></div>
+      <div id="dispatches" class="mt-4 space-y-2"></div>
+    </section>
+
+    <!-- ═══ STATE 3: RESULTS ══════════════════════════════════ -->
+    <section id="results-section" class="hidden mt-8">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Results</h2>
+
+      <!-- Summary card -->
+      <div id="summary-card" class="bg-white border border-gray-200 rounded-xl p-6 mb-4 shadow-sm">
+        <p id="res-id" class="text-xs text-gray-400 font-mono mb-1"></p>
+        <h3 id="res-title" class="text-base font-semibold text-gray-900 mb-3"></h3>
+        <p id="res-summary" class="text-sm text-gray-600 leading-relaxed"></p>
+      </div>
+
+      <!-- Actions table -->
+      <div id="actions-card" class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm mb-4">
+        <div class="px-5 py-3 border-b border-gray-100">
+          <h4 class="text-sm font-semibold text-gray-900">Extracted Actions</h4>
+        </div>
+        <div id="actions-body" class="divide-y divide-gray-50"></div>
+      </div>
+
+      <!-- Participant notifications -->
+      <div id="notifs-card" class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm mb-6">
+        <div class="px-5 py-3 border-b border-gray-100">
+          <h4 class="text-sm font-semibold text-gray-900">Participant Notifications</h4>
+        </div>
+        <div id="notifs-body" class="divide-y divide-gray-50"></div>
+      </div>
+
+      <button onclick="resetUI()"
+        class="w-full py-3 rounded-xl text-sm font-semibold text-brand-600 border-2 border-brand-200 hover:bg-brand-50 transition-colors">
+        Run Another Meeting
+      </button>
+    </section>
+
+  </main>
+
+<script>
+// ─── State ──────────────────────────────────────────────────
+let currentMode = 'transcript';
+let primaryFile = null;
+let participantsFile = null;
+let startTime = 0;
+let elapsedTimer = null;
+
+const BADGE_COLORS = {
+  'Jira':   'bg-blue-100 text-blue-700',
+  'GitHub': 'bg-gray-800 text-white',
+  'Email':  'bg-amber-100 text-amber-700',
+  'Teams':  'bg-purple-100 text-purple-700',
+  'Review': 'bg-yellow-100 text-yellow-700',
+};
+
+const STEP_LABELS = {
+  upload:     'Upload files',
+  transcribe: 'Process input',
+  analyze:    'Analyze with Gemini',
+  dispatch:   'Dispatch actions',
+};
+
+// ─── Init ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  setMode('transcript');
+  initDragDrop();
+  loadConfig();
+});
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    const el = document.getElementById('badges');
+    const flags = [
+      ['Teams', cfg.enable_teams],
+      ['Email', cfg.enable_email],
+      ['Jira',  cfg.enable_jira],
+      ['GitHub',cfg.enable_github],
+    ];
+    el.innerHTML = flags.map(([name, on]) =>
+      `<span class="px-2 py-0.5 rounded-full font-medium ${on ? BADGE_COLORS[name] : 'bg-gray-100 text-gray-400'}">${name}</span>`
+    ).join('');
+  } catch(e) { /* ignore */ }
+}
+
+// ─── Mode switching ─────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  primaryFile = null;
+  participantsFile = null;
+  document.getElementById('primary-file').classList.add('hidden');
+  document.getElementById('participants-file').classList.add('hidden');
+  document.getElementById('input-primary').value = '';
+  document.getElementById('input-participants').value = '';
+
+  const tTab = document.getElementById('tab-transcript');
+  const aTab = document.getElementById('tab-audio');
+  const activeClass = 'bg-white shadow-sm text-gray-900';
+  const inactiveClass = 'text-gray-500';
+
+  if (mode === 'transcript') {
+    tTab.className = `flex-1 text-sm font-medium py-2 px-4 rounded-md transition-all ${activeClass}`;
+    aTab.className = `flex-1 text-sm font-medium py-2 px-4 rounded-md transition-all ${inactiveClass}`;
+    document.getElementById('primary-label').innerHTML = 'Drop your <strong>.vtt</strong> transcript here, or click to browse';
+    document.getElementById('input-primary').accept = '.vtt';
+    document.getElementById('participants-req').textContent = '(optional for transcript mode)';
+  } else {
+    aTab.className = `flex-1 text-sm font-medium py-2 px-4 rounded-md transition-all ${activeClass}`;
+    tTab.className = `flex-1 text-sm font-medium py-2 px-4 rounded-md transition-all ${inactiveClass}`;
+    document.getElementById('primary-label').innerHTML = 'Drop your <strong>audio file</strong> (.mp3, .wav, .m4a), or click to browse';
+    document.getElementById('input-primary').accept = '.mp3,.wav,.m4a,.ogg,.flac';
+    document.getElementById('participants-req').textContent = '(required for audio mode)';
+  }
+  updateRunButton();
+}
+
+// ─── File handling ──────────────────────────────────────────
+function handleFile(input, target) {
+  const f = input.files[0];
+  if (!f) return;
+  if (target === 'primary') {
+    primaryFile = f;
+    const el = document.getElementById('primary-file');
+    el.textContent = f.name;
+    el.classList.remove('hidden');
+  } else {
+    participantsFile = f;
+    const el = document.getElementById('participants-file');
+    el.textContent = f.name;
+    el.classList.remove('hidden');
+  }
+  updateRunButton();
+}
+
+function initDragDrop() {
+  document.querySelectorAll('.drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const input = zone.querySelector('input');
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        input.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+}
+
+function updateRunButton() {
+  const btn = document.getElementById('btn-run');
+  if (currentMode === 'audio') {
+    btn.disabled = !primaryFile || !participantsFile;
+  } else {
+    btn.disabled = !primaryFile;
+  }
+}
+
+// ─── Pipeline execution ─────────────────────────────────────
+function startPipeline() {
+  document.getElementById('upload-section').classList.add('hidden');
+  document.getElementById('tracker-section').classList.remove('hidden');
+  document.getElementById('results-section').classList.add('hidden');
+  document.getElementById('steps').innerHTML = '';
+  document.getElementById('dispatches').innerHTML = '';
+
+  startTime = performance.now();
+  elapsedTimer = setInterval(() => {
+    document.getElementById('elapsed').textContent = ((performance.now() - startTime) / 1000).toFixed(1) + 's';
+  }, 100);
+
+  const form = new FormData();
+  form.append('mode', currentMode);
+  form.append('file', primaryFile);
+  if (participantsFile) form.append('participants', participantsFile);
+
+  fetch('/api/run', { method: 'POST', body: form }).then(response => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) { onDone(); return; }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        let eventType = '';
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            eventType = line.slice(6).trim();
+          } else if (line.startsWith('data:')) {
+            const data = line.slice(5).trim();
+            if (data) {
+              try { handleSSE(eventType, JSON.parse(data)); } catch(e) {}
+            }
+          }
+        }
+        read();
+      });
+    }
+    read();
+  });
+}
+
+// ─── SSE handlers ───────────────────────────────────────────
+function handleSSE(type, data) {
+  if (type === 'step') renderStep(data);
+  else if (type === 'dispatch') renderDispatch(data);
+  else if (type === 'result') renderResults(data);
+  else if (type === 'error') renderStep({ id: 'error', status: 'error', detail: data.detail });
+  else if (type === 'done') onDone();
+}
+
+function onDone() {
+  clearInterval(elapsedTimer);
+  document.getElementById('results-section').classList.remove('hidden');
+  document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── Step rendering ─────────────────────────────────────────
+function renderStep(data) {
+  const container = document.getElementById('steps');
+  let el = document.getElementById('step-' + data.id);
+
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'step-' + data.id;
+    el.className = 'fade-up flex items-start gap-3 bg-white border border-gray-200 rounded-xl px-5 py-4 shadow-sm';
+    container.appendChild(el);
+  }
+
+  const icon = data.status === 'done'
+    ? `<div class="mt-0.5 w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0"><svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div>`
+    : data.status === 'error'
+    ? `<div class="mt-0.5 w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0"><svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></div>`
+    : `<div class="mt-0.5 w-6 h-6 rounded-full border-2 border-brand-500 border-t-transparent spin flex-shrink-0 pulse-ring"></div>`;
+
+  const label = STEP_LABELS[data.id] || data.id;
+  el.innerHTML = `${icon}<div class="min-w-0"><p class="text-sm font-medium text-gray-900">${label}</p><p class="text-xs text-gray-500 mt-0.5">${data.detail || ''}</p></div>`;
+}
+
+function renderDispatch(data) {
+  const container = document.getElementById('dispatches');
+  const colorClass = BADGE_COLORS[data.label] || 'bg-gray-100 text-gray-600';
+
+  const statusIcon = data.status === 'success'
+    ? '<span class="text-emerald-500">&#10003;</span>'
+    : data.status === 'skipped'
+    ? '<span class="text-gray-400">&#8212;</span>'
+    : '<span class="text-red-500">&#10007;</span>';
+
+  const el = document.createElement('div');
+  el.className = 'fade-up flex items-center gap-3 bg-white border border-gray-100 rounded-lg px-4 py-2.5';
+  el.innerHTML = `
+    <span class="text-sm">${statusIcon}</span>
+    <span class="px-2 py-0.5 rounded text-xs font-semibold ${colorClass}">${data.label}</span>
+    <span class="text-sm text-gray-700 truncate flex-1">${esc(data.title)}</span>
+    <span class="text-xs text-gray-400">${esc(data.assignee || '')}</span>
+  `;
+  container.appendChild(el);
+}
+
+// ─── Results rendering ──────────────────────────────────────
+function renderResults(data) {
+  const meta = data.meeting_metadata || {};
+  document.getElementById('res-id').textContent = meta.meeting_id || '';
+  document.getElementById('res-title').textContent = meta.title || '';
+  document.getElementById('res-summary').textContent = meta.summary || '';
+
+  // Actions
+  const actionsBody = document.getElementById('actions-body');
+  actionsBody.innerHTML = '';
+  (data.extracted_actions || []).forEach(a => {
+    const label = { create_jira_ticket:'Jira', create_github_issue:'GitHub', draft_email:'Email', ms_teams_ping:'Teams', manual_review:'Review' }[a.action_type] || a.action_type;
+    const colorClass = BADGE_COLORS[label] || 'bg-gray-100 text-gray-600';
+    const title = a.payload.issue_summary || a.payload.issue_title || a.payload.subject || a.payload.message_content || a.payload.task_summary || '';
+    const priority = a.payload.suggested_priority;
+
+    const row = document.createElement('div');
+    row.className = 'px-5 py-3 flex items-center gap-3';
+    row.innerHTML = `
+      <span class="px-2 py-0.5 rounded text-xs font-semibold ${colorClass}">${label}</span>
+      <span class="text-sm text-gray-800 flex-1 truncate">${esc(title)}</span>
+      ${priority ? `<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">${esc(priority)}</span>` : ''}
+      <span class="text-xs text-gray-400 w-12 text-right">${esc(a.assignee_id)}</span>
+    `;
+    actionsBody.appendChild(row);
+  });
+
+  // Notifications
+  const notifsBody = document.getElementById('notifs-body');
+  notifsBody.innerHTML = '';
+  (data.participant_notifications || []).forEach(pn => {
+    const card = document.createElement('div');
+    card.className = 'px-5 py-4';
+
+    const header = document.createElement('button');
+    header.className = 'flex items-center justify-between w-full text-left';
+    header.innerHTML = `
+      <span class="text-sm font-medium text-gray-900">${esc(pn.id)}</span>
+      <svg class="w-4 h-4 text-gray-400 transition-transform notif-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'mt-3 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap hidden notif-body bg-gray-50 rounded-lg p-4';
+    body.textContent = pn.teams_notification_markdown || '';
+
+    header.addEventListener('click', () => {
+      body.classList.toggle('hidden');
+      header.querySelector('.notif-chevron').style.transform = body.classList.contains('hidden') ? '' : 'rotate(180deg)';
+    });
+
+    card.appendChild(header);
+    card.appendChild(body);
+    notifsBody.appendChild(card);
+  });
+}
+
+// ─── Reset ──────────────────────────────────────────────────
+function resetUI() {
+  document.getElementById('upload-section').classList.remove('hidden');
+  document.getElementById('tracker-section').classList.add('hidden');
+  document.getElementById('results-section').classList.add('hidden');
+  primaryFile = null;
+  participantsFile = null;
+  document.getElementById('input-primary').value = '';
+  document.getElementById('input-participants').value = '';
+  document.getElementById('primary-file').classList.add('hidden');
+  document.getElementById('participants-file').classList.add('hidden');
+  updateRunButton();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

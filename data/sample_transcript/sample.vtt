@@ -1,0 +1,133 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:06.500
+<v Ram>Hey everyone, good morning. Um, am I audible? Mera aawaz aa raha hai theek se?</v>
+
+00:00:07.000 --> 00:00:10.200
+<v Meera>Yeah Ram, we can hear you. All good.</v>
+
+00:00:10.500 --> 00:00:17.800
+<v Ram>Awesome. Chalo, let's start. We have a lot of ground to cover for Project Athena. The partner demo is this Friday, right?</v>
+
+00:00:18.000 --> 00:00:24.500
+<v Jack>Yeah, Friday 2 PM IST. But Ram, dekho, we have a major blocker regarding the infrastructure.</v>
+
+00:00:25.000 --> 00:00:31.000
+<v Jack>I was checking the Azure portal yesterday night, and our OpenAI token consumption is hitting the ceiling.</v>
+
+00:00:31.500 --> 00:00:37.000
+<v Ram>Again? Didn't we just upgrade the tier? What's consuming so many tokens?</v>
+
+00:00:37.500 --> 00:00:44.000
+<v Meera>It's the new chunking strategy, I think. Pura document split hoke jaa raha hai context window mein, so it's heavy.</v>
+
+00:00:44.500 --> 00:00:51.000
+<v Jack>Right. So, we need formal approval from the client's IT director to double the quota for the GPT-4 deployment.</v>
+
+00:00:51.500 --> 00:00:56.000
+<v Ram>Okay, Jack, can you handle that? Draft a formal request explaining the load testing requirements.</v>
+
+00:00:56.500 --> 00:00:59.500
+<v Jack>Sure, I will write the email to Sarah at client-side before lunch today.</v>
+
+00:01:00.000 --> 00:01:05.500
+<v Ram>Thanks. Meera, let's talk backend. Are we sorted with the RAG pipeline? No more 500 errors?</v>
+
+00:01:06.000 --> 00:01:14.000
+<v Meera>Um, actually nahi. There's a new issue. The vector search is timing out. Pura FAISS index corrupt ho gaya during the nightly data sync.</v>
+
+00:01:14.500 --> 00:01:21.000
+<v Meera>I had to manually restart the pods, but the routing service logic needs a patch to handle the timeouts gracefully.</v>
+
+00:01:21.500 --> 00:01:26.500
+<v Ram>Oh man, that's critical. Friday is the demo. We need this fixed and tracked immediately.</v>
+
+00:01:27.000 --> 00:01:31.000
+<v Meera>Tension mat lo, I'm already on it. I'll log a bug for the timeout patch and start working on it.</v>
+
+00:01:31.500 --> 00:01:38.500
+<v Manoj>Hey Meera, ek second. While you are fixing the routing, I actually pushed a new branch yesterday for the embedding models.</v>
+
+00:01:39.000 --> 00:01:46.000
+<v Manoj>I migrated us from text-embedding-ada-002 to the v3 model. Mera PR kal raat se pending hai.</v>
+
+00:01:46.500 --> 00:01:50.000
+<v Manoj>Can someone please review it? It's in the backend repository, PR number 142.</v>
+
+00:01:50.500 --> 00:01:55.000
+<v Karen>I can take a look, Manoj. Give me a couple of hours. I'll review the PR and merge if tests pass.</v>
+
+00:01:55.500 --> 00:01:58.500
+<v Manoj>Awesome. Thanks Karen. Just drop comments on the diff if anything breaks.</v>
+
+00:01:59.000 --> 00:02:05.000
+<v Ram>Great, thanks guys. Karen, since I have you, what is the status of the React frontend? EY branding team approved the new UI?</v>
+
+00:02:05.500 --> 00:02:14.000
+<v Karen>Yes, UI is locked. But... I am completely blocked on the chat interface. Manoj, the streaming endpoint is still returning plain text, not server-sent events.</v>
+
+00:02:14.500 --> 00:02:20.500
+<v Karen>Without the SSE, main typing effect render nahi kar sakti. It just waits 10 seconds and dumps the whole paragraph.</v>
+
+00:02:21.000 --> 00:02:27.000
+<v Manoj>Ah, my bad. The dev environment didn't deploy correctly. The code is there, we just need to test the payload format together.</v>
+
+00:02:27.500 --> 00:02:32.000
+<v Karen>Okay, that's fine. Manoj, let's not debug this on the sync. Hit me up on Teams around 3 PM?</v>
+
+00:02:32.500 --> 00:02:37.000
+<v Manoj>Done. I'll drop you a message at 3 and we'll hop on a quick call to sort out the streaming.</v>
+
+00:02:37.500 --> 00:02:44.000
+<v Ram>Perfect. Moving on... Information Security audit. The internal risk team is going to audit Project Athena next week.</v>
+
+00:02:44.500 --> 00:02:51.000
+<v Ram>We need to properly document all the prompt injection guardrails we built. Like, how are we sanitizing inputs? Who can document this?</v>
+
+00:02:51.500 --> 00:02:56.500
+<v Meera>Since I wrote the system prompts and the regex filters, I can write the documentation for it.</v>
+
+00:02:57.000 --> 00:03:04.500
+<v Ram>Thanks Meera. Just make sure you cover the PII masking logic as well. InfoSec is very strict about data leakage.</v>
+
+00:03:05.000 --> 00:03:13.000
+<v Jack>Also Ram, regarding InfoSec... there is a massive checklist on the Risk Portal that has to be filled out. Like, 40 questions about our data architecture.</v>
+
+00:03:13.500 --> 00:03:19.000
+<v Jack>The deadline to submit that portal checklist is tomorrow end of day. If we miss it, they will block our production release.</v>
+
+00:03:19.500 --> 00:03:22.000
+<v Manoj>Oh god, the risk portal. Yeah, that's an absolute nightmare.</v>
+
+00:03:22.500 --> 00:03:26.000
+<v Karen>Yeah, we definitely cannot miss that deadline. It takes weeks to get an exception.</v>
+
+00:03:26.500 --> 00:03:31.000
+<v Ram>Agreed. It is top priority. Please ensure the portal submission is completed by tomorrow evening.</v>
+
+00:03:31.500 --> 00:03:37.500
+<v Ram>Alright, last item on my agenda. I want us to look ahead a bit. For phase 2, I think we need to evaluate LlamaIndex.</v>
+
+00:03:38.000 --> 00:03:45.000
+<v Ram>Right now we are using raw LangChain, but maintaining these chains is getting messy. LlamaIndex might be better for our specific use case.</v>
+
+00:03:45.500 --> 00:03:50.000
+<v Manoj>Haan, I was reading about that. Unka latest update is really good for document parsing.</v>
+
+00:03:50.500 --> 00:03:54.000
+<v Ram>Exactly. Can someone take a spike on this? Just evaluate LlamaIndex versus our current setup.</v>
+
+00:03:54.500 --> 00:04:00.000
+<v Manoj>I'll do it. I will investigate the framework and write up a comparison doc with pros and cons.</v>
+
+00:04:00.500 --> 00:04:08.000
+<v Ram>Great, thanks Manoj. Does anyone have anything else? Koi aur blockers hain kya?</v>
+
+00:04:08.500 --> 00:04:14.000
+<v Karen>Nothing from my side, but Ram, reminder for you... you haven't approved the contractor timesheets in SAP yet.</v>
+
+00:04:14.500 --> 00:04:18.000
+<v Ram>Ah shoot, I forgot. Thanks Karen. I will approve those timesheets right after this call.</v>
+
+00:04:18.500 --> 00:04:22.000
+<v Ram>Okay team, let's get back to work. Phir milte hain. Bye.</v>
